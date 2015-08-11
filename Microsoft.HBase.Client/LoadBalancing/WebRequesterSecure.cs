@@ -69,8 +69,11 @@ namespace Microsoft.HBase.Client
         public async Task<HttpWebResponse> IssueWebRequestAsync(
             string endpoint, string method = "GET", Stream input = null, string alternativeEndpointBase = null)
         {
-            string baseEndPoint = alternativeEndpointBase ?? Constants.RestEndpointBase;
-            HttpWebRequest httpWebRequest = WebRequest.CreateHttp(new Uri(_credentials.ClusterUri, baseEndPoint + endpoint));
+
+            //Changes for gaps in URI with Azure.
+          //  string baseEndPoint = alternativeEndpointBase ?? Constants.RestEndpointBase;
+            //HttpWebRequest httpWebRequest = WebRequest.CreateHttp(new Uri(_credentials.ClusterUri, baseEndPoint + endpoint));
+            HttpWebRequest httpWebRequest = WebRequest.CreateHttp(new Uri(_credentials.ClusterUri, endpoint));
             httpWebRequest.Credentials = _credentialCache;
             httpWebRequest.PreAuthenticate = true;
             httpWebRequest.Method = method;
