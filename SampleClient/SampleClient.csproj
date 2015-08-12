@@ -47,6 +47,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Dtos\AttributeDto.cs" />
+    <Compile Include="Dtos\HierarchyDto.cs" />
+    <Compile Include="Dtos\Identifier.cs" />
+    <Compile Include="Dtos\ItemDto.cs" />
+    <Compile Include="ItemMapper.cs" />
+    <Compile Include="JsonSeralizer.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
