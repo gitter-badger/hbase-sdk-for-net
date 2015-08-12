@@ -6,32 +6,10 @@ using SampleClient.Dtos;
 
 namespace SampleClient
 {
+    using System.Threading.Tasks;
+
     class Program
         {
-
-         private static ItemDto CreateItem(string code)
-         {
-             return new ItemDto
-             {
-                 Code = code,
-                 Attributes =
-                     new List<AttributeDto>()
-                     {
-                         new AttributeDto { Id = "attributeId", Value = new AttributeValue { Name = "attributeName", Value = "attributeValue" } }
-                     },
-                 MerchandiseHierarchy = new HierarchyDto { Code = "hierarchyCode", Title = "hierarchyTitle" },
-                 Description = "longDescription",
-                 ShortDescription = "shortDescription",
-                 Groups =
-                     new List<HierarchyDto>
-                     {
-                         new HierarchyDto { Code = "hierarchyCode1", Title = "hierarchyTitle1" },
-                         new HierarchyDto { Code = "hierarchyCode2", Title = "hierarchyTitle2" }
-                     },
-                 Identifiers = new List<Identifier> { new Identifier { Type = "identifierType", Value = "identifierValue" } },
-                 Status = "Enabled"
-             };
-         }
 
             private static void Main(string[] args)
             {
@@ -41,21 +19,51 @@ namespace SampleClient
 
                 // Create a new instance of an HBase client.
                 var hbaseClient = new HBaseClient(new ClusterCredentials(new Uri(clusterURL), hadoopUsername, hadoopUserPassword));
-
-                var item = CreateItem("mycode");
                 var itemMapper = new ItemMapper(new JsonDotNetSerializer());
+                hbaseClient.DeleteTable("Items");
                 var tableSchema = itemMapper.CreateTableSchema("Items");
                 hbaseClient.CreateTable(tableSchema);
+
+                var perfCheck = new PerformanceChecksManager(hbaseClient, "Items", itemMapper, new ItemsGenerator(),50,100);
+
+
+                perfCheck.RunPerformanceLoad();
+
+
+
+
+
+
+           
+
+
+                var tasks = new List<Task>();
+
+                for (int i = 0; i < 10; i++)
+                {
+               
+                }
+
+
+
+
+
+
+
+
+                //var item = CreateItem("mycode");
+              
+               
           
 
-                var itemCellSet = itemMapper.GetCells(item, "en-US");
-                hbaseClient.StoreCells("Items", itemCellSet);
+                //var itemCellSet = itemMapper.GetCells(item, "en-US");
+                //hbaseClient.StoreCells("Items", itemCellSet);
 
-                itemCellSet = hbaseClient.GetCells("Items", item.Code);
-                var itemFromDb = itemMapper.GetDto(itemCellSet, "en-US");
+                //itemCellSet = hbaseClient.GetCells("Items", item.Code);
+                //var itemFromDb = itemMapper.GetDto(itemCellSet, "en-US");
 
-                if (!itemFromDb.Groups.First().Code.Equals(item.Groups.First().Code))
-                    throw new Exception();
+                //if (!itemFromDb.Groups.First().Code.Equals(item.Groups.First().Code))
+                //    throw new Exception();
 
 
                 #region Old-Helper

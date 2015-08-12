@@ -53,7 +53,9 @@
     <Compile Include="Dtos\ItemDto.cs" />
     <Compile Include="Helper.cs" />
     <Compile Include="ItemMapper.cs" />
+    <Compile Include="ItemsGenerator.cs" />
     <Compile Include="JsonSeralizer.cs" />
+    <Compile Include="PerformanceChecksManager.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
