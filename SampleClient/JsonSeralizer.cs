@@ -1,38 +1,24 @@
-﻿using System;
+﻿using System.Globalization;
+using System.IO;
 using System.Text;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Bson;
+using Newtonsoft.Json.Converters;
+
 
 namespace SampleClient
 {
-    using System.Globalization;
-    using System.IO;
-    using System.Reflection;
-    using System.Runtime.Serialization.Formatters;
-    using Newtonsoft.Json;
-    using Newtonsoft.Json.Bson;
-    using Newtonsoft.Json.Converters;
-    using Newtonsoft.Json.Serialization;
-
     public class JsonDotNetSerializer 
     {
      private static JsonSerializer GetSerializerInstance()
         {
             var jsonSerializer = new JsonSerializer()
             {
-                //TypeNameHandling = TypeNameHandling.All,
+                TypeNameHandling = TypeNameHandling.All,
                 ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-
-                //made to support bson that starts with pure string only
-                //------------------------
-               ContractResolver = new DefaultContractResolver() { DefaultMembersSearchFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance },
-               TypeNameAssemblyFormat = FormatterAssemblyStyle.Simple,
-                ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor
-                
-                //--------------------------
             };
 
-            //jsonSerializer.Converters.Add(new IsoDateTimeConverter());
-         
-
+            jsonSerializer.Converters.Add(new IsoDateTimeConverter());
             return jsonSerializer;
         }
 
@@ -62,14 +48,14 @@ namespace SampleClient
         /// <param name="bsonContent">Content of the bson.</param>
         /// <param name="objectType">Type of the object.</param>
         /// <returns></returns>
-        public object DeseralizeFromBson<T>(byte[] bsonContent)
+        public T DeseralizeFromBson<T>(byte[] bsonContent)
         {
             using (var stream = new MemoryStream(bsonContent))
             {
                 using (var reader = new BsonReader(stream))
                 {
                     var jsonSerializer = GetSerializerInstance();
-                    return jsonSerializer.Deserialize(reader, typeof(T));
+                    return (T)jsonSerializer.Deserialize(reader, typeof(T));
                 }
             }
         }
@@ -99,18 +85,17 @@ namespace SampleClient
         /// <typeparam name="T"></typeparam>
         /// <param name="jsonContent">JSON content</param>
         /// <returns></returns>
-        public object DeseralizeFromJson(string jsonContent, Type objectType)
+        public object DeseralizeFromJson<T>(string jsonContent)
         {
             using (var reader = new StringReader(jsonContent))
             {
                 using (var jsonReader = new JsonTextReader(reader))
                 {
                     var jsonSerializer = GetSerializerInstance();
-                    return jsonSerializer.Deserialize(jsonReader, objectType);
+                    return jsonSerializer.Deserialize(jsonReader, typeof(T));
                 }
             }
         }
-
     
     }
 }

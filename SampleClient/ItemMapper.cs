@@ -21,12 +21,7 @@ namespace SampleClient
             //Create a new HBase table.
             TableSchema testTableSchema = new TableSchema();
             testTableSchema.name = name;
-            testTableSchema.columns.Add(new ColumnSchema() { name = "DATA" });
-            testTableSchema.columns.Add(new ColumnSchema() { name = "Hierarchy" });
-            testTableSchema.columns.Add(new ColumnSchema() { name = "Descriptions" });
-            testTableSchema.columns.Add(new ColumnSchema() { name = "Groups" });
-            testTableSchema.columns.Add(new ColumnSchema() { name = "Identifiers" });
-            testTableSchema.columns.Add(new ColumnSchema() { name = "Attributes" });
+            testTableSchema.columns.Add(new ColumnSchema() { name = "CF1" });
             return testTableSchema;
         }
 
@@ -34,22 +29,21 @@ namespace SampleClient
         {
             var cellSetRow = new CellSet.Row { key = Encoding.UTF8.GetBytes(item.Code) };
             var cells = new List<Cell>();
-            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("DATA:Status"), data = Encoding.UTF8.GetBytes(item.Status) });
-            //cells.Add(new Cell { column = Encoding.UTF8.GetBytes("DATA:Status"), data = _serializer.SerializeToBson(item.Status) });
-            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("Hierarchy:" + item.MerchandiseHierarchy.Code), data = _serializer.SerializeToBson(item.MerchandiseHierarchy) });
-            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("DATA:CreatedDate"), data = Encoding.UTF8.GetBytes(DateTime.Now.ToString()) });
-            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("DATA:UpdatedDate"), data = Encoding.UTF8.GetBytes(DateTime.Now.ToString()) });
-            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("Descriptions:Long_" + culture), data = Encoding.UTF8.GetBytes(item.Description) });
-            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("Descriptions:Short_" + culture), data = Encoding.UTF8.GetBytes(item.ShortDescription) });
+            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("CF1:Status"), data = Encoding.UTF8.GetBytes(item.Status) });
+            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("CF1:MH" + item.MerchandiseHierarchy.Code), data = _serializer.SerializeToBson(item.MerchandiseHierarchy) });
+            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("CF1:CreatedDate"), data = Encoding.UTF8.GetBytes(DateTime.Now.ToString()) });
+            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("CF1:UpdatedDate"), data = Encoding.UTF8.GetBytes(DateTime.Now.ToString()) });
+            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("CF1:Long_" + culture), data = Encoding.UTF8.GetBytes(item.Description) });
+            cells.Add(new Cell { column = Encoding.UTF8.GetBytes("CF1:Short_" + culture), data = Encoding.UTF8.GetBytes(item.ShortDescription) });
 
             foreach (var group in item.Groups)
-                cells.Add(new Cell { column = Encoding.UTF8.GetBytes("Groups:" + group.Code), data = _serializer.SerializeToBson(group) });
+                cells.Add(new Cell { column = Encoding.UTF8.GetBytes("CF1:G" + group.Code), data = _serializer.SerializeToBson(group) });
 
             foreach (var identifier in item.Identifiers)
-                cells.Add(new Cell { column = Encoding.UTF8.GetBytes("Identifiers:" + identifier.Type), data = Encoding.UTF8.GetBytes(identifier.Value) });
+                cells.Add(new Cell { column = Encoding.UTF8.GetBytes("CF1:I" + identifier.Type), data = Encoding.UTF8.GetBytes(identifier.Value) });
 
             foreach (var attributes in item.Attributes)
-                cells.Add(new Cell { column = Encoding.UTF8.GetBytes("Attributes:" + culture + "_" + attributes.Id), data = _serializer.SerializeToBson(attributes.Value) });
+                cells.Add(new Cell { column = Encoding.UTF8.GetBytes("CF1:A" + culture + "_" + attributes.Id), data = _serializer.SerializeToBson(attributes.Value) });
             cellSetRow.values.AddRange(cells);
 
             var cellSet = new CellSet();
@@ -65,31 +59,30 @@ namespace SampleClient
 
             var item = new ItemDto();
             item.Code = Encoding.UTF8.GetString(itemRow.key);
-            item.Status = Encoding.UTF8.GetString(columnNameMapping["DATA:Status"]);
-            //item.Status = (string)_serializer.DeseralizeFromBson(columnNameMapping["DATA:Status"],typeof(string));
+            item.Status = Encoding.UTF8.GetString(columnNameMapping["CF1:Status"]);
+        
+            var hierarchyColumnKey = columnNameMapping.Keys.Where(o => o.StartsWith("CF1:MH"));
+            item.MerchandiseHierarchy = _serializer.DeseralizeFromBson<HierarchyDto>(columnNameMapping[hierarchyColumnKey.First()]);
 
-            var hierarchyColumnKey = columnNameMapping.Keys.Where(o => o.Contains("Hierarchy"));
-            item.MerchandiseHierarchy = (HierarchyDto)_serializer.DeseralizeFromBson(columnNameMapping[hierarchyColumnKey.First()], typeof(HierarchyDto));
+            item.CreatedDate = DateTime.Parse(Encoding.UTF8.GetString(columnNameMapping["CF1:CreatedDate"]));
+            item.LastUpdateDate = DateTime.Parse(Encoding.UTF8.GetString(columnNameMapping["CF1:UpdatedDate"]));
+            item.Description = Encoding.UTF8.GetString(columnNameMapping["CF1:Long_" + culture]);
+            item.ShortDescription = Encoding.UTF8.GetString(columnNameMapping["CF1:Short_" + culture]);
 
-            item.CreatedDate =DateTime.Parse(Encoding.UTF8.GetString(columnNameMapping["DATA:CreatedDate"]));
-            item.LastUpdateDate = DateTime.Parse(Encoding.UTF8.GetString(columnNameMapping["DATA:UpdatedDate"]));
-            item.Description = Encoding.UTF8.GetString(columnNameMapping["Descriptions:Long_" + culture]);
-            item.ShortDescription = Encoding.UTF8.GetString(columnNameMapping["Descriptions:Short_" + culture]);
-
-            var groupColumnKeys = columnNameMapping.Keys.Where(o => o.StartsWith("Groups:"));
+            var groupColumnKeys = columnNameMapping.Keys.Where(o => o.StartsWith("CF1:G"));
             item.Groups = new List<HierarchyDto>();
             foreach (var groupKey in groupColumnKeys)
-                item.Groups.Add((HierarchyDto)_serializer.DeseralizeFromBson(columnNameMapping[groupKey], typeof(HierarchyDto)));
+                item.Groups.Add(_serializer.DeseralizeFromBson<HierarchyDto>(columnNameMapping[groupKey]));
 
-            var identifiersColumnKeys = columnNameMapping.Keys.Where(o => o.StartsWith("Identifiers:"));
+            var identifiersColumnKeys = columnNameMapping.Keys.Where(o => o.StartsWith("CF1:I"));
             item.Identifiers = new List<Identifier>();
             foreach (var identifierKey in identifiersColumnKeys)
-                item.Identifiers.Add(new Identifier{ Value= Encoding.UTF8.GetString(columnNameMapping[identifierKey]),Type= identifierKey.Substring(13)});
+                item.Identifiers.Add(new Identifier{ Value= Encoding.UTF8.GetString(columnNameMapping[identifierKey]),Type= identifierKey.Substring(5)});
 
-            var attributesColumnKeys = columnNameMapping.Keys.Where(o => o.StartsWith("Attributes:" + culture));
+            var attributesColumnKeys = columnNameMapping.Keys.Where(o => o.StartsWith("CF1:A" + culture));
             item.Attributes = new List<AttributeDto>();
             foreach (var attributeKey in attributesColumnKeys)
-                item.Attributes.Add(new AttributeDto { Id = attributeKey.Substring(17), Value = (AttributeValue)_serializer.DeseralizeFromBson(columnNameMapping[attributeKey], typeof(AttributeValue)) });
+                item.Attributes.Add(new AttributeDto { Id = attributeKey.Substring(11), Value = _serializer.DeseralizeFromBson<AttributeValue>(columnNameMapping[attributeKey]) });
 
             
 

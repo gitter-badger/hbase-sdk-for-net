@@ -1,179 +1,89 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.HBase.Client;
-using SampleClient;
-using Microsoft.HBase.Client;
-using System.Reflection;
-using System.Runtime.Serialization.Formatters;
+using SampleClient.Dtos;
 
 namespace SampleClient
-
 {
-    using System.IO;
-    using Newtonsoft.Json;
-    using Newtonsoft.Json.Bson;
-    using Newtonsoft.Json.Serialization;
-    using org.apache.hadoop.hbase.rest.protobuf.generated;
-
-    public class NestedDto
-    {
-        public string Field1 { get; set; }
-        public string Field2 { get; set; }
-    }
-
-
-    public class Dto
-    {
-        public string Field1 { get; set; }
-        public string Field2 { get; set; }
-        public string Field3 { get; set; }
-        public string Field4 { get; set; }
-        public string Field5 { get; set; }
-        public NestedDto NestedData { get; set; }
-
-    }
-
-
-    public class Helper
-    {
-        //Probably not thread safe.
-
-        private readonly HBaseClient _client;
-        private readonly string _sampleTableName;
-        private readonly string _sampleRowKey;
-        private readonly Dictionary<string, byte[]> _columnNameMapping;
-        private readonly JsonSerializer _serializer;
-
-
-        public Helper(HBaseClient client, string sampleTableName, string sampleRowKey)
+    class Program
         {
-            _client = client;
-            _sampleTableName = sampleTableName;
-            _sampleRowKey = sampleRowKey;
 
-            _serializer = new JsonSerializer
-            {
-                ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-                ContractResolver =
-                    new DefaultContractResolver { DefaultMembersSearchFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance },
-                TypeNameAssemblyFormat = FormatterAssemblyStyle.Simple,
-                ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor
-            };
+         private static ItemDto CreateItem(string code)
+         {
+             return new ItemDto
+             {
+                 Code = code,
+                 Attributes =
+                     new List<AttributeDto>()
+                     {
+                         new AttributeDto { Id = "attributeId", Value = new AttributeValue { Name = "attributeName", Value = "attributeValue" } }
+                     },
+                 MerchandiseHierarchy = new HierarchyDto { Code = "hierarchyCode", Title = "hierarchyTitle" },
+                 Description = "longDescription",
+                 ShortDescription = "shortDescription",
+                 Groups =
+                     new List<HierarchyDto>
+                     {
+                         new HierarchyDto { Code = "hierarchyCode1", Title = "hierarchyTitle1" },
+                         new HierarchyDto { Code = "hierarchyCode2", Title = "hierarchyTitle2" }
+                     },
+                 Identifiers = new List<Identifier> { new Identifier { Type = "identifierType", Value = "identifierValue" } },
+                 Status = "Enabled"
+             };
+         }
 
-            _columnNameMapping = new Dictionary<string, byte[]>();
-        }
-                public void CreateTable()
-        {
-             //Create a new HBase table.
-            TableSchema testTableSchema = new TableSchema();
-            testTableSchema.name = _sampleTableName;
-            testTableSchema.columns.Add(new ColumnSchema() { name = "CF1" });
-            testTableSchema.columns.Add(new ColumnSchema() { name = "CF2" });
-            _client.CreateTable(testTableSchema);
-        }
-
-        public void SaveMyDto(Dto dto)
-        {
-           CellSet cellSet = new CellSet();
-            CellSet.Row cellSetRow = new CellSet.Row { key = Encoding.UTF8.GetBytes(_sampleRowKey) };
-           cellSet.rows.Add(cellSetRow);
-
-            Cell value1 = new Cell { column = Encoding.UTF8.GetBytes("CF1:field1"), data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(dto.Field1)) };
-            Cell value2 = new Cell { column = Encoding.UTF8.GetBytes("CF1:field2"), data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(dto.Field2)) };
-            Cell value3 = new Cell { column = Encoding.UTF8.GetBytes("CF1:field3"), data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(dto.Field3)) };
-            Cell value4 = new Cell { column = Encoding.UTF8.GetBytes("CF1:field4"), data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(dto.Field4)) };
-            Cell value5 = new Cell { column = Encoding.UTF8.GetBytes("CF1:field5"), data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(dto.Field5)) };
-       //     Cell value6 = new Cell { column = Encoding.UTF8.GetBytes("CF1:NestedData"), data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(dto.NestedData))};
-            
-            byte[] nestedDataBlob;
-
-            using (var memoryStream = new MemoryStream())
-            {
-                using (var writer = new BsonWriter(memoryStream))
-                {
-                    _serializer.Serialize(writer, dto.NestedData);
-                    nestedDataBlob = memoryStream.ToArray();
-                }
-            }
-
-            Cell value6 = new Cell { column = Encoding.UTF8.GetBytes("CF1:NestedData"), data = nestedDataBlob };
-            cellSetRow.values.AddRange(new List<Cell>() { value1, value2, value3, value4, value5,value6 });
-            _client.StoreCells(_sampleTableName, cellSet);
-        }
-
-        public Dto GetMyDto()
-        {
-             //Retrieve a cell by its key.
-            var cellSet = _client.GetCells(_sampleTableName, _sampleRowKey);
-           
-            foreach (var value in cellSet.rows.Single().values)
-            {
-                    //maps everything 
-                    var columnName = Encoding.UTF8.GetString(value.column);
-                    _columnNameMapping.Add(columnName, value.data);
-            }
-            
-            //converting
-            var composedDto = BuildUpDto();
-            return composedDto;
-
-        }
-
-        private Dto BuildUpDto()
-        {
-            var myDto = new Dto();
-             myDto.Field1 = JsonConvert.DeserializeObject<string>(Encoding.UTF8.GetString(_columnNameMapping["CF1:field1"]));
-             myDto.Field2 = JsonConvert.DeserializeObject<string>(Encoding.UTF8.GetString(_columnNameMapping["CF1:field2"]));
-             myDto.Field3 = JsonConvert.DeserializeObject<string>(Encoding.UTF8.GetString(_columnNameMapping["CF1:field3"]));
-             myDto.Field4 = JsonConvert.DeserializeObject<string>(Encoding.UTF8.GetString(_columnNameMapping["CF1:field4"]));
-             myDto.Field5 = JsonConvert.DeserializeObject<string>(Encoding.UTF8.GetString(_columnNameMapping["CF1:field5"]));
-             //myDto.NestedData=JsonConvert.DeserializeObject<NestedDto>(Encoding.UTF8.GetString(_columnNameMapping["CF1:NestedData"]));
-            
-            var ms = new MemoryStream(_columnNameMapping["CF1:NestedData"]);
-            using (var reader = new BsonReader(ms))
-            {
-                myDto.NestedData= _serializer.Deserialize<NestedDto>(reader);
-            
-            }
-            
-            return myDto;
-            return myDto;
-        }
-    }
-
-
-
-     class Program
-        {
             private static void Main(string[] args)
             {
-                string clusterURL = "http://localhost:5555";
-                string hadoopUsername = "root";
-                string hadoopUserPassword = "hadoop";
-                string hbaseTableName = "MyCoolTable";
+                const string clusterURL = "http://localhost:5555";
+                const string hadoopUsername = "root";
+                const string hadoopUserPassword = "hadoop";
 
                 // Create a new instance of an HBase client.
-                ClusterCredentials creds = new ClusterCredentials(new Uri(clusterURL), hadoopUsername, hadoopUserPassword);
-                HBaseClient hbaseClient = new HBaseClient(creds);
+                var hbaseClient = new HBaseClient(new ClusterCredentials(new Uri(clusterURL), hadoopUsername, hadoopUserPassword));
 
-                var hbaseHelper = new Helper(hbaseClient, "ThisIsJustATableForShirly1", "DummyKey1ForShirly1");
-                hbaseHelper.CreateTable();
-                var myClass = new Dto()
-                {
-                    Field1 = "1",
-                    Field2 = "2",
-                    Field3 = "3",
-                    Field4 = "4",
-                    Field5 = "5",
-                    NestedData = new NestedDto() { Field1 = "n1", Field2 = "n2" }
-                };
+                var item = CreateItem("mycode");
+                var itemMapper = new ItemMapper(new JsonDotNetSerializer());
+                var tableSchema = itemMapper.CreateTableSchema("Items");
+                hbaseClient.CreateTable(tableSchema);
+          
 
-                hbaseHelper.SaveMyDto(myClass);
+                var itemCellSet = itemMapper.GetCells(item, "en-US");
+                hbaseClient.StoreCells("Items", itemCellSet);
 
-                var dto = hbaseHelper.GetMyDto();
+                itemCellSet = hbaseClient.GetCells("Items", item.Code);
+                var itemFromDb = itemMapper.GetDto(itemCellSet, "en-US");
+
+                if (!itemFromDb.Groups.First().Code.Equals(item.Groups.First().Code))
+                    throw new Exception();
+
+
+                #region Old-Helper
+                //string clusterURL = "http://localhost:5555";
+                //string hadoopUsername = "root";
+                //string hadoopUserPassword = "hadoop";
+                //string hbaseTableName = "MyCoolTable";
+
+                //// Create a new instance of an HBase client.
+                //ClusterCredentials creds = new ClusterCredentials(new Uri(clusterURL), hadoopUsername, hadoopUserPassword);
+                //HBaseClient hbaseClient = new HBaseClient(creds);
+
+                //var hbaseHelper = new Helper(hbaseClient, "ThisIsJustATableForShirly1", "DummyKey1ForShirly1");
+                //hbaseHelper.CreateTable();
+                //var myClass = new Dto()
+                //{
+                //    Field1 = "1",
+                //    Field2 = "2",
+                //    Field3 = "3",
+                //    Field4 = "4",
+                //    Field5 = "5",
+                //    NestedData = new NestedDto() { Field1 = "n1", Field2 = "n2" }
+                //};
+
+                //hbaseHelper.SaveMyDto(myClass);
+
+                //var dto = hbaseHelper.GetMyDto();
+#endregion
             }
         }
     }
