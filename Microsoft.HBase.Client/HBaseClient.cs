@@ -19,7 +19,9 @@ namespace Microsoft.HBase.Client
     using System.Diagnostics;
     using System.Diagnostics.Contracts;
     using System.IO;
+    using System.Linq;
     using System.Net;
+    using System.Text;
     using System.Threading.Tasks;
     using Microsoft.HBase.Client.Internal;
     using Microsoft.HBase.Client.LoadBalancing;
@@ -707,6 +709,53 @@ namespace Microsoft.HBase.Client
                 {
                     if (!retryPolicy.ShouldRetryAttempt(e))
                     {
+                        throw;
+                    }
+                }
+            }
+        }
+
+        public async void CheckAndPutCells(string table, CellSet cells, Cell valueToCheck)
+        {
+            table.ArgumentNotNullNorEmpty("table");
+            cells.ArgumentNotNull("cells");
+
+            cells.rows.Single().values.Add(valueToCheck);
+            while (true)
+            {
+                IRetryPolicy retryPolicy = _retryPolicyFactory.Create();
+
+                try
+                {
+
+                    // note the fake row key to insert a set of cells
+                    using (HttpWebResponse webResponse = await PutRequestAsync(table + "/" + Encoding.UTF8.GetString(cells.rows.First().key) + "?check=put", cells, null))
+                    {
+                     
+                        if (webResponse.StatusCode != HttpStatusCode.OK)
+                        {
+                            using (var output = new StreamReader(webResponse.GetResponseStream()))
+                            {
+                                string message = output.ReadToEnd();
+                                throw new WebException(
+                                   string.Format(
+                                      "Couldn't insert into table {0}! Response code was: {1}, expected 200! Response body was: {2}",
+                                      table,
+                                      webResponse.StatusCode,
+                                      message));
+                            }
+                        }
+                        else
+                        {
+                            return;
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    if (!retryPolicy.ShouldRetryAttempt(e))
+                    {
+                       
                         throw;
                     }
                 }
