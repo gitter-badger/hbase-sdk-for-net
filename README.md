@@ -1,6 +1,8 @@
 Microsoft HBase REST Client Library for .NET
 ======
 
+[![Join the chat at https://gitter.im/AviMualem/hbase-sdk-for-net](https://badges.gitter.im/AviMualem/hbase-sdk-for-net.svg)](https://gitter.im/AviMualem/hbase-sdk-for-net?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 This is C# client library for HBase on Azure HDInsight.
 It currently targets HBase 0.98 and HDInsight 3.1 on Microsoft Azure. It is also compatible with 0.96.2 (HDI 3.0).
 The communication works through HBase REST (StarGate) which uses ProtoBuf as a serialization format.
